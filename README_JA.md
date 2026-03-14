@@ -70,9 +70,9 @@
 ### 環境準備
 
 - **CUDA Toolkit**
-> [!WARNING]
-> 現在のバージョンは**CUDA 推論バックエンドのみサポート**しており、CPU および MPS 加速は**現時点でサポートされていません**。
-> 将来的には**ONNX Runtime**を統合し、ハードウェアの互換性を拡張する予定です。
+> [!IMPORTANT]
+> 現在のバージョンでは、CUDA、MPS (Apple Silicon)、および CPU 推論バックエンドを全面的にサポートしています。
+> 今後は ONNX Runtime を統合し、CPU および MPS における推論速度のさらなる高速化を計画しています。
 
 ### インストールとデプロイ
 
@@ -85,7 +85,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 #### 2. GSV-TTS-Lite のインストール
 上記の基本環境が準備できれば、以下のコマンドを実行するだけで統合が完了します：
 ```bash
-pip install gsv-tts-lite==0.3.1
+pip install gsv-tts-lite==0.3.2
 ```
 
 ### クイックスタート
