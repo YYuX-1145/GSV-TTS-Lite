@@ -112,6 +112,6 @@ def check_pretrained_models(models_dir):
     if is_download:
         os.makedirs(models_dir, exist_ok=True)
         download_model(
-            filename="pretrained_models3.zip",
-            zip_filename=Path(models_dir) / "pretrained_models3.zip"
+            filename="pretrained_models4.zip",
+            zip_filename=Path(models_dir) / "pretrained_models4.zip"
         )

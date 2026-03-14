@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 from .attentions import MultiHeadAttention
 
@@ -16,10 +17,19 @@ class MRTE(nn.Module):
         self.text_pre = nn.Conv1d(content_enc_channels, hidden_size, 1)
         self.c_post = nn.Conv1d(hidden_size, out_channels, 1)
 
-    def forward(self, ssl_enc, ssl_mask, text, text_mask, ge=None):
+    def forward(self, ssl_enc, ssl_mask, text, text_mask, ge=None, slice_indices=None):
         if ge == None:
             ge = 0
-        attn_mask = text_mask.unsqueeze(2) * ssl_mask.unsqueeze(-1)
+        
+        if slice_indices is None:
+            attn_mask = text_mask.unsqueeze(2) * ssl_mask.unsqueeze(-1)
+        else:
+            # 应用局部片段掩码，将交叉注意力的感受野限制在指定的文本区间内，降低噪声干扰
+            text_range = torch.arange(text.shape[-1], device=text.device).unsqueeze(0)
+            start = slice_indices[:, 0].unsqueeze(-1)
+            end = slice_indices[:, 1].unsqueeze(-1)
+            attn_mask = (text_range >= start) & (text_range < end)
+            attn_mask = attn_mask.unsqueeze(0).unsqueeze(0)
 
         ssl_enc = self.c_pre(ssl_enc * ssl_mask)
         text_enc = self.text_pre(text * text_mask)

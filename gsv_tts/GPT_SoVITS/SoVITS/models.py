@@ -199,13 +199,13 @@ class TextEncoder(nn.Module):
 
         return text, text_mask
     
-    def infer(self, y, text, text_mask, ge, speed, stream_mode=False, valid_start_idx=None, overlap_len=None):
+    def infer(self, y, text, text_mask, ge, speed, stream_mode=False, valid_start_idx=None, overlap_len=None, slice_indices=None):
         y_mask = torch.ones((1, 1, y.size(2)), dtype=y.dtype, device=y.device)
 
         y = self.ssl_proj(y * y_mask) * y_mask
         y = self.encoder_ssl(y * y_mask, y_mask)
 
-        y = self.mrte(y, y_mask, text, text_mask, ge)
+        y = self.mrte(y, y_mask, text, text_mask, ge, slice_indices)
         y = self.encoder2(y * y_mask, y_mask)
         
         if stream_mode:
@@ -356,7 +356,7 @@ class SynthesizerTrn(nn.Module):
         return ge
     
     @torch.inference_mode()
-    def decode(self, codes, text, text_mask, ge, noise_scale=0.5, speed=1, cuda_graph=True, stream_mode=False, valid_start_idx=None, overlap_len=None):
+    def decode(self, codes, text, text_mask, ge, noise_scale=0.5, speed=1, cuda_graph=True, stream_mode=False, valid_start_idx=None, overlap_len=None, slice_indices=None):
         quantized = self.quantizer.decode(codes)
         quantized = F.interpolate(quantized, size=quantized.shape[-1] * 2, mode="nearest")
         if ge.shape[-1] != 1: ge = F.interpolate(ge, size=ge.shape[-1] * 2, mode="nearest")
@@ -370,6 +370,7 @@ class SynthesizerTrn(nn.Module):
             stream_mode,
             valid_start_idx,
             overlap_len,
+            slice_indices,
         )
 
         if speed != 1 and ge.shape[-1] != 1: ge = F.interpolate(ge, size=m_p.shape[-1], mode="nearest")

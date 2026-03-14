@@ -23,11 +23,10 @@ def text_to_phonemes(text, language):
         phones, word2ph = global_config.chinese_g2p.g2p(norm_text)
 
     elif language == "ja":
-        os.environ["OPEN_JTALK_DICT_DIR"] = str(Path(global_config.models_dir) / "g2p" / "ja" / "open_jtalk_dic_utf_8-1.11")
         from .Japanese import JapaneseG2P
 
         if global_config.japanese_g2p is None:
-            global_config.japanese_g2p = JapaneseG2P(global_config.models_dir)
+            global_config.japanese_g2p = JapaneseG2P()
         norm_text = global_config.japanese_g2p.text_normalize(text)
         phones, word2ph = global_config.japanese_g2p.g2p(norm_text)
     

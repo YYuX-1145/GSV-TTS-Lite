@@ -214,6 +214,8 @@ class Text2SemanticDecoder(nn.Module):
             else:
                 self.cuda_graph_buckets[batch_size] = [max_kv_cache]
 
+        # 这里采用了一种自适应的 KV Cache 管理策略
+
         s = torch.cuda.Stream()
         s.wait_stream(torch.cuda.current_stream())
 
@@ -233,11 +235,11 @@ class Text2SemanticDecoder(nn.Module):
                         bucket.kv_cache_len = torch.zeros((batch_size,), dtype=torch.int64, device=device)
                         bucket.graph_xy_pos = torch.zeros((batch_size, 1, self.model_dim), dtype=dtype, device=device)
                     else:
-                        last_bucket: Bucket = self.cuda_graph_buckets[batch_size][-1]
-                        bucket.k_cache = last_bucket.k_cache[:, :, :max_kv_cache]
-                        bucket.v_cache = last_bucket.v_cache[:, :, :max_kv_cache]
-                        bucket.kv_cache_len = last_bucket.kv_cache_len[:]
-                        bucket.graph_xy_pos = last_bucket.graph_xy_pos[:]
+                        max_bucket: Bucket = self.cuda_graph_buckets[batch_size][-1]
+                        bucket.k_cache = max_bucket.k_cache[:, :, :max_kv_cache]
+                        bucket.v_cache = max_bucket.v_cache[:, :, :max_kv_cache]
+                        bucket.kv_cache_len = max_bucket.kv_cache_len[:]
+                        bucket.graph_xy_pos = max_bucket.graph_xy_pos[:]
 
                     for _ in range(3):
                         self.t2s_transformer.decode_next_token(
@@ -277,6 +279,8 @@ class Text2SemanticDecoder(nn.Module):
         indices = torch.arange(y_len, device=device).unsqueeze(0)
         y_mask2 = indices < y_lens
 
+        last_token_mask = xy_indices == xy_lens - 1
+
 
         x = self.ar_text_embedding(x)
         x = x + self.bert_proj(bert_feature)
@@ -305,7 +309,7 @@ class Text2SemanticDecoder(nn.Module):
 
         prompt_attn_mask = prompt_attn_mask.unsqueeze(1).expand(-1, self.num_head, -1, -1)
 
-        return xy_pos, prompt_attn_mask
+        return xy_pos, last_token_mask, prompt_attn_mask
 
     def process_single_data(self, x, y, bert_feature):
         x_len = x.shape[1]
@@ -506,7 +510,7 @@ class Text2SemanticDecoder(nn.Module):
         y_lens = torch.tensor([i.shape[0] for i in y[:batch_size]], device=device)
         xy_lens = x_lens + y_lens
 
-        xy_pos, prompt_attn_mask = self.process_batch_data(
+        xy_pos, last_token_mask, prompt_attn_mask = self.process_batch_data(
             batch_x,
             batch_y,
             batch_bert_feature,
@@ -535,7 +539,7 @@ class Text2SemanticDecoder(nn.Module):
 
 
         xy_dec = self.t2s_transformer.process_prompt(xy_pos, bucket.k_cache[:, :actual_batch_size], bucket.v_cache[:, :actual_batch_size], bucket.kv_cache_len[:actual_batch_size], prompt_attn_mask)
-        logits = self.ar_predict_layer(xy_dec[:, -1])
+        logits = self.ar_predict_layer(xy_dec[last_token_mask])
 
         bucket.kv_cache_len[:actual_batch_size].copy_(xy_lens)
 

@@ -2,7 +2,7 @@ import pickle
 import os
 import re
 import wordsegment
-from g2p_en import G2p
+from .g2p_en import G2p
 
 from ..Symbols import symbols, punctuation
 
@@ -15,7 +15,7 @@ from pathlib import Path
 
 class EnglishG2P(G2p):
     def __init__(self, models_dir):
-        super().__init__()
+        super().__init__(models_dir)
 
         self.word_tokenize = TweetTokenizer().tokenize
 

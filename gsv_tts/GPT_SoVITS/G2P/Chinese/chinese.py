@@ -8,11 +8,11 @@ from ..Symbols import punctuation
 from .tone_sandhi import ToneSandhi
 from .Normalization.text_normlization import TextNormalizer
 
-import jieba_fast
+import jieba
 import logging
 
-jieba_fast.setLogLevel(logging.CRITICAL)
-import jieba_fast.posseg as psg
+jieba.setLogLevel(logging.CRITICAL)
+import jieba.posseg as psg
 from pathlib import Path
 
 

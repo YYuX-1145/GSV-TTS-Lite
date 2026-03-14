@@ -1,22 +1,11 @@
 # modified from https://github.com/CjangCjengh/vits/blob/main/text/japanese.py
 import re
-import os
 import pyopenjtalk
 from ..Symbols import punctuation
-from pathlib import Path
 
 
 class JapaneseG2P:
-    def __init__(self, models_dir):
-        self.USERDIC_CSV_PATH = str(Path(models_dir) / "g2p" / "ja" / "userdict.csv")
-        self.USERDIC_BIN_PATH = str(Path(models_dir) / "g2p" / "ja" / "user.dict")
-
-        if os.path.exists(self.USERDIC_CSV_PATH) and not os.path.exists(self.USERDIC_BIN_PATH):
-            pyopenjtalk.mecab_dict_index(self.USERDIC_CSV_PATH, self.USERDIC_BIN_PATH)
-
-        if os.path.exists(self.USERDIC_BIN_PATH):
-            pyopenjtalk.update_global_jtalk_with_user_dict(self.USERDIC_BIN_PATH)
-
+    def __init__(self):
         # Regular expression matching Japanese without punctuation marks:
         self._japanese_characters = re.compile(
             r"[A-Za-z\d\u3005\u3040-\u30ff\u4e00-\u9fff\uff11-\uff19\uff21-\uff3a\uff41-\uff5a\uff66-\uff9d]"

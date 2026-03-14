@@ -101,7 +101,7 @@ class TTS:
         self.cnhubert_model = None
         self.sv_model = None
 
-        self.punctuation = {".", "。", "?", "？", "!", "！", ",", "，", ":", "：", ";", "；", "、"}
+        self.punctuation = {".", "。", "?", "？", "!", "！", ",", "，", ":", "：", ";", "；", "、", "・"}
 
         self.samplerate = 32000
         self.gpt_hz = 25
@@ -120,8 +120,8 @@ class TTS:
         prompt_audio_path: str,
         prompt_audio_text: str,
         text: str,
-        top_k: int = 15,
-        top_p: float = 1.0,
+        top_k: int = 5,
+        top_p: float = 0.9,
         temperature: float = 1.0,
         repetition_penalty: float = 1.35,
         noise_scale: float = 0.5,
@@ -154,6 +154,7 @@ class TTS:
                 - samplerate (int): The sample rate of the generated audio.
                 - audio_len_s (float): The duration of the generated audio in seconds.
                 - subtitles (list): Subtitle data corresponding to the generated audio.
+                - orig_text (str): The original input text.
         """
 
         try:
@@ -246,16 +247,15 @@ class TTS:
         prompt_audio_text: str,
         text: str,
         is_cut_text: bool = True,
-        cut_punds: dict = {".", "。", "?", "？", "!", "！", ",", "，", ":", "：", ";", "；", "、"},
         cut_minlen: int = 10,
         cut_mute: int = 0.2,
-        cut_mute_scale_map: dict = {".": 1.5, "。": 1.5, "?": 1.5, "？": 1.5, "!": 1.5, "！": 1.5,",": 0.8, "，": 0.8, "、": 0.6},
+        cut_mute_scale_map: dict = {".": 1.5, "。": 1.5, "?": 1.5, "？": 1.5, "!": 1.5, "！": 1.5,",": 0.8, "，": 0.8, "、": 0.6, "・": 0.6},
         stream_mode: Literal["token", "sentence"] = "token",
         stream_chunk: int = 25,
         overlap_len: int = 10,
         boost_first_chunk: bool = True,
-        top_k: int = 15,
-        top_p: float = 1.0,
+        top_k: int = 5,
+        top_p: float = 0.9,
         temperature: float = 1.0,
         repetition_penalty: float = 1.35,
         noise_scale: float = 0.5,
@@ -275,7 +275,6 @@ class TTS:
             prompt_audio_text (str): The transcription (text content) of the prompt audio.
             text (str): The target text to be synthesized into speech.
             is_cut_text (bool, optional): Whether to split the input text into smaller segments based on punctuation.
-            cut_punds (set, optional): A set of punctuation marks used to split the text into segments for processing.
             cut_minlen (int, optional): The minimum length of a text segment. Segments shorter than this will be merged.
             cut_mute (float, optional): Duration of silence (in seconds) to insert between text segments.
             cut_mute_scale_map (dict, optional): A mapping to scale the mute duration (cut_mute) for specific punctuation marks.
@@ -299,6 +298,7 @@ class TTS:
                 - samplerate (int): The sample rate of the generated audio.
                 - audio_len_s (float): The duration of the generated audio in seconds.
                 - subtitles (list): Subtitle data specific to this chunk.
+                - orig_text (str): The original input text.
         """
 
         try:
@@ -339,7 +339,7 @@ class TTS:
             audio_len_s = 0
             last_end_s = 0
 
-            text_cuts = cut_text(text, cut_punds, cut_minlen)
+            text_cuts = cut_text(text, cut_minlen)
             for i, text_cut in enumerate(text_cuts):
                 if debug: logging.info(f"Processing segment {i+1}/{len(text_cuts)}: '{text_cut}'")
 
@@ -451,12 +451,11 @@ class TTS:
         texts: str | list[str],
         return_subtitles: bool = False,
         is_cut_text: bool = True,
-        cut_punds: dict = {".", "。", "?", "？", "!", "！", ",", "，", ":", "：", ";", "；", "、"},
         cut_minlen: int = 10,
         cut_mute: int = 0.2,
-        cut_mute_scale_map: dict = {".": 1.5, "。": 1.5, "?": 1.5, "？": 1.5, "!": 1.5, "！": 1.5,",": 0.8, "，": 0.8, "、": 0.6},
-        top_k: int = 15,
-        top_p: float = 1.0,
+        cut_mute_scale_map: dict = {".": 1.5, "。": 1.5, "?": 1.5, "？": 1.5, "!": 1.5, "！": 1.5,",": 0.8, "，": 0.8, "、": 0.6, "・": 0.6},
+        top_k: int = 5,
+        top_p: float = 0.9,
         temperature: float = 1.0,
         repetition_penalty: float = 1.35,
         noise_scale: float = 0.5,
@@ -478,7 +477,6 @@ class TTS:
             texts (str | list[str]): The target text to be synthesized into speech.
             return_subtitles (bool, optional): Whether to return subtitle information (timestamps) for the generated audio.
             is_cut_text (bool, optional): Whether to split the input text into smaller segments based on punctuation.
-            cut_punds (set, optional): A set of punctuation marks used to split the text into segments for processing.
             cut_minlen (int, optional): The minimum length of a text segment. Segments shorter than this will be merged.
             cut_mute (float, optional): Duration of silence (in seconds) to insert between text segments.
             cut_mute_scale_map (dict, optional): A mapping to scale the mute duration (cut_mute) for specific punctuation marks.
@@ -499,6 +497,8 @@ class TTS:
                 - audio_data (np.ndarray, float32): The generated raw audio waveform data.
                 - samplerate (int): The sample rate of the generated audio.
                 - audio_len_s (float): The duration of the generated audio in seconds.
+                - subtitles (list): Subtitle data specific to this chunk.
+                - orig_text (str): The original input text.
         """
         
         try:
@@ -548,9 +548,9 @@ class TTS:
             segment_to_original_map = []
             
             for idx, text in enumerate(texts):
-                cuts = cut_text(text, cut_punds, cut_minlen)
-                for cut in cuts:
-                    all_segments.append(cut)
+                text_cuts = cut_text(text, cut_minlen)
+                for text_cut in text_cuts:
+                    all_segments.append(text_cut)
                     segment_to_original_map.append(idx)
             
             n_orig = len(texts)
@@ -636,14 +636,14 @@ class TTS:
                 repetition_penalty=repetition_penalty,
             )
 
-            semantic_lengths = torch.tensor([len(semantic) for semantic in pred_semantic])
+            semantic_lengths = torch.tensor([len(semantic) for semantic in pred_semantic], device=self.tts_config.device)
 
             idx_map = torch.argsort(semantic_lengths)
 
             # 将排序后的索引进行双端交错重排，平衡各 Batch 间的序列长度，避免因长短不一导致的计算负载不均
             n = len(idx_map)
-            sorted_indices = torch.arange(n)
-            interleave_idx = torch.zeros(n, dtype=torch.long)
+            sorted_indices = torch.arange(n, device=self.tts_config.device)
+            interleave_idx = torch.zeros(n, dtype=torch.long, device=self.tts_config.device)
             interleave_idx[0::2] = sorted_indices[:(n + 1) // 2]
             interleave_idx[1::2] = sorted_indices[(n + 1) // 2:].flip(0)
 
@@ -668,14 +668,22 @@ class TTS:
 
                 ge_list = []
                 phones2_list = []
+                phone_lens = []
                 for idx, length in enumerate(curr_lengths):
                     orig_idx = curr_orig_indices[idx]
                     ge_list.append(all_ge[orig_idx].expand(-1, length))
                     phones2_list.append(torch.LongTensor(all_phones2[orig_idx]).to(self.tts_config.device))
+                    phone_lens.append(len(all_phones2[orig_idx]))
                 
                 curr_ge = torch.cat(ge_list, dim=1).unsqueeze(0)
                 curr_semantic = torch.cat(semantic_list).unsqueeze(0).unsqueeze(0)
                 curr_phones2 = torch.cat(phones2_list).unsqueeze(0)
+
+                phone_lens = torch.tensor(phone_lens, device=self.tts_config.device)
+                ends = torch.cumsum(phone_lens, dim=0)
+                starts = ends - phone_lens
+                pairs = torch.stack([starts, ends], dim=1)
+                slice_indices = torch.repeat_interleave(pairs, curr_lengths * 2, dim=0)
 
                 curr_word2ph = {
                     "word": [w for idx in curr_orig_indices for w in all_word2ph[idx]["word"]],
@@ -688,7 +696,7 @@ class TTS:
                 encoded_text, text_mask = vq_model.enc_p.text_encode(curr_phones2)
 
                 audio_batch, attn = vq_model.decode(
-                    curr_semantic, encoded_text, text_mask, curr_ge, noise_scale=noise_scale, speed=speed, cuda_graph=False
+                    curr_semantic, encoded_text, text_mask, curr_ge, noise_scale=noise_scale, speed=speed, cuda_graph=False, slice_indices=slice_indices
                 )
 
                 audio_batch = audio_batch[0, 0, :]
@@ -743,7 +751,7 @@ class TTS:
 
                         generated_audios.append(audio)
 
-            logging.info(f"Inference complete. Generated {len(generated_audios)} audio clips.")
+            logging.info(f"Inference complete. Generated {len(generated_audios)} audio segments.")
 
             ordered_audios = [None] * len(generated_audios)
             ordered_subtitles = [None] * len(generated_audios)
@@ -824,6 +832,7 @@ class TTS:
                 - samplerate (int): The sample rate of the generated audio.
                 - audio_len_s (float): The duration of the generated audio in seconds.
                 - subtitles (list): Subtitle data corresponding to the generated audio.
+                - orig_text (str): The original input text.
         """
 
         try:
@@ -1200,35 +1209,40 @@ class TTS:
             checkpoint_path (str): Path to the source PyTorch (.pth or .ckpt) file.
             output_dir (str, optional): Path to the target directory where the converted file will be saved.
         """
+        try:
+            def to_dict(obj):
+                if hasattr(obj, "__dict__"):
+                    return {k: to_dict(v) for k, v in obj.__dict__.items()}
+                elif isinstance(obj, list):
+                    return [to_dict(v) for v in obj]
+                elif isinstance(obj, (str, int, float, bool, type(None))):
+                    return obj
+                else:
+                    return str(obj)
 
-        def to_dict(obj):
-            if hasattr(obj, "__dict__"):
-                return {k: to_dict(v) for k, v in obj.__dict__.items()}
-            elif isinstance(obj, list):
-                return [to_dict(v) for v in obj]
-            elif isinstance(obj, (str, int, float, bool, type(None))):
-                return obj
-            else:
-                return str(obj)
+            if output_dir is None:
+                output_dir, _ = os.path.splitext(checkpoint_path)
 
-        if output_dir is None:
-            output_dir, _ = os.path.splitext(checkpoint_path)
+            os.makedirs(output_dir, exist_ok=True)
 
-        os.makedirs(output_dir, exist_ok=True)
+            if Path(checkpoint_path).suffix == ".pth":
+                sovits = get_sovits_weights(checkpoint_path, self.tts_config)
+                save_model(sovits.vq_model, os.path.join(output_dir, "model.safetensors"))
+                with open(os.path.join(output_dir, "hps.json"), "w") as f:
+                    json.dump(to_dict(sovits.hps), f, indent=4, ensure_ascii=False)
+                del sovits
 
-        if Path(checkpoint_path).suffix == ".pth":
-            sovits = get_sovits_weights(checkpoint_path, self.tts_config)
-            save_model(sovits.vq_model, os.path.join(output_dir, "model.safetensors"))
-            with open(os.path.join(output_dir, "hps.json"), "w") as f:
-                json.dump(to_dict(sovits.hps), f, indent=4, ensure_ascii=False)
-
-        elif Path(checkpoint_path).suffix == ".ckpt":
-            gpt = get_gpt_weights(checkpoint_path, self.tts_config)
-            save_model(gpt.t2s_model, os.path.join(output_dir, "model.safetensors"))
-            with open(os.path.join(output_dir, "config.json"), "w") as f:
-                json.dump(gpt.config, f, indent=4, ensure_ascii=False)
+            elif Path(checkpoint_path).suffix == ".ckpt":
+                gpt = get_gpt_weights(checkpoint_path, self.tts_config)
+                save_model(gpt.t2s_model, os.path.join(output_dir, "model.safetensors"))
+                with open(os.path.join(output_dir, "config.json"), "w") as f:
+                    json.dump(gpt.config, f, indent=4, ensure_ascii=False)
+                del gpt
+            
+            logging.info(f"Successfully converted and saved to: {output_dir}")
         
-        logging.info(f"Successfully converted and saved to: {output_dir}")
+        finally:
+            self._empty_cache()
     
     def _get_prompt(self, cnhubert_model: CNHubert, sovits_model: Sovits, audio_path: str):
         wav, sr = torchaudio.load(audio_path)

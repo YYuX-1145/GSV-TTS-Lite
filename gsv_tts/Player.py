@@ -76,9 +76,15 @@ class AudioClip:
         self.orig_text = orig_text
     
     def play(self):
+        """
+        Adds the audio data to the playback queue for sequential output.
+        """
         self.audio_queue.put(self.audio_data)
     
     def save(self, save_path: str, is_save_subtitles: bool = False):
+        """
+        Saves the audio data to a file and optionally exports subtitles as a JSON file.
+        """
         sf.write(save_path, self.audio_data, self.samplerate)
 
         if is_save_subtitles:

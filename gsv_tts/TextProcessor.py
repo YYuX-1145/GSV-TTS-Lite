@@ -1,44 +1,51 @@
 import re
 import torch
+import pysbd
 import bisect
 
 from .config import Config
 from .LangSegment import LangSegment
 from .GPT_SoVITS.G2P import phonemes_to_ids, text_to_phonemes
 
+seg = pysbd.Segmenter()
 
-def cut_text(text, punds, cut_minlen):
-    text = text.strip("\n")
-    mergeitems = []
-    items = []
-    logical_count = 0
+
+def get_semantic_length(text, en_weight=1.75):
+    cn_count = len(re.findall(r'[\u4e00-\u9fff]', text))
+    en_count = len(re.findall(r'[a-zA-Z0-9]+', text))
+    return cn_count + (en_count * en_weight)
+
+def cut_text(text, cut_minlen=10):
+    sentences = seg.segment(text)
     
-    tokens = re.findall(r'[a-zA-Z0-9]+|.', text)
+    text_cuts = []
+    punds_pattern = r'([，,；;：:、~・]|[\.]{2,}|…+)' 
 
-    for i, token in enumerate(tokens):
-        items.append(token)
+    for sentence in sentences:
+        parts = re.split(punds_pattern, sentence)
         
-        if token not in punds and not token.isspace():
-            logical_count += 1
-            
-        if token in punds:
-            is_decimal = (token == "." and i > 0 and i < len(tokens) - 1 and tokens[i-1].isdigit() and tokens[i+1].isdigit())
-            
-            if not is_decimal and logical_count >= cut_minlen:
-                mergeitems.append("".join(items))
-                items = []
-                logical_count = 0
+        temp_list = []
+        for i in range(0, len(parts)-1, 2):
+            clause = parts[i] + parts[i+1]
+            temp_list.append(clause)
         
-    if items:
-        mergeitems.append("".join(items))
+        if len(parts) % 2 != 0 and parts[-1]:
+            temp_list.append(parts[-1])
 
-    return [item for item in mergeitems if any(c not in punds and not c.isspace() for c in item)]
+        current_segment = ""
+        for s in temp_list:
+            current_segment += s
+            if get_semantic_length(current_segment) >= cut_minlen:
+                text_cuts.append(current_segment)
+                current_segment = ""
+        
+        if current_segment:
+            if text_cuts:
+                text_cuts[-1] += current_segment
+            else:
+                text_cuts.append(current_segment)
 
-
-def process_text(text, language):
-    phones_raw, word2ph, norm_text = text_to_phonemes(text, language)
-    phones = phonemes_to_ids(phones_raw)
-    return phones, word2ph, norm_text
+    return text_cuts
 
 
 def get_phones_and_bert(texts, tts_config: Config):
@@ -63,7 +70,9 @@ def get_phones_and_bert(texts, tts_config: Config):
         batch_bert.append([])
 
         for segment in segments:
-            phones, _word2ph, norm_text = process_text(segment['text'], segment['lang'])
+            phones_raw, _word2ph, norm_text = text_to_phonemes(segment['text'], segment['lang'])
+            phones = phonemes_to_ids(phones_raw)
+
             word2ph["word"] += _word2ph["word"]
             word2ph["ph"] += _word2ph["ph"]
             if tts_config.cnroberta and segment['lang'] == "zh":
@@ -73,6 +82,7 @@ def get_phones_and_bert(texts, tts_config: Config):
                 batch_bert[-1].append(None)
             else:
                 batch_bert[-1].append(torch.zeros((len(phones), 1024), dtype=tts_config.dtype, device=tts_config.device))
+                
             phones_list.append(phones)
             norm_text_list.append(norm_text)
 
