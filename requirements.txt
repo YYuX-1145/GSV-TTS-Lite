@@ -5,10 +5,20 @@ torchcodec
 transformers
 sounddevice
 safetensors
+numpy
+py3langid
+pysbd
+onnxruntime
+
+# en
+nltk
+future
 wordsegment
-py3langid >= 0.2.2
-g2p_en
+
+# zh
 cn2an
 pypinyin
-jieba_fast
-pyopenjtalk>=0.4.1
+jieba
+
+# ja
+pyopenjtalk-plus
