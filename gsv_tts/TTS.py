@@ -1486,9 +1486,9 @@ class TTS:
     def _empty_cache(self):
         try:
             gc.collect()
-            if "cuda" in str(self.tts_config.device):
+            if self.tts_config.device_type == "cuda":
                 torch.cuda.empty_cache()
-            elif str(self.tts_config.device) == "mps":
+            elif self.tts_config.device_type == "mps":
                 torch.mps.empty_cache()
         except:
             pass

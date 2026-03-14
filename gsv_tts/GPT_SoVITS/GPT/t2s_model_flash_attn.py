@@ -139,7 +139,7 @@ class T2STransformer(nn.Module):
 
 
 class Bucket:
-    cuda_graph: torch.cuda.CUDAGraph = None
+    cuda_graph = None  # 改为通用类型，支持 None 或非 CUDA 设备
     graph_xy_pos: torch.Tensor = None
     graph_xy_dec: torch.Tensor = None
     kv_cache_len: torch.Tensor = None
@@ -216,10 +216,17 @@ class Text2SemanticDecoder(nn.Module):
 
         # 这里采用了一种自适应的 KV Cache 管理策略
 
-        s = torch.cuda.Stream()
-        s.wait_stream(torch.cuda.current_stream())
+        # 检查是否使用 CUDA Graph（仅 CUDA 设备支持）
+        use_cuda_graph = device.type == "cuda"
 
-        with torch.cuda.stream(s):
+        if use_cuda_graph:
+            s = torch.cuda.Stream()
+            s.wait_stream(torch.cuda.current_stream())
+            stream_context = torch.cuda.stream(s)
+        else:
+            stream_context = torch.no_grad()
+
+        with stream_context:
             for batch_size in self.cuda_graph_buckets:
                 for i in range(-1, -len(self.cuda_graph_buckets[batch_size])-1, -1):
                     max_kv_cache = self.cuda_graph_buckets[batch_size][i]
@@ -241,6 +248,7 @@ class Text2SemanticDecoder(nn.Module):
                         bucket.kv_cache_len = max_bucket.kv_cache_len[:]
                         bucket.graph_xy_pos = max_bucket.graph_xy_pos[:]
 
+                    # 预热运行
                     for _ in range(3):
                         self.t2s_transformer.decode_next_token(
                             bucket.graph_xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len
@@ -248,17 +256,19 @@ class Text2SemanticDecoder(nn.Module):
 
                     bucket.kv_cache_len.fill_(0)
 
-                    torch.cuda.current_stream().synchronize()
+                    if use_cuda_graph:
+                        torch.cuda.current_stream().synchronize()
 
-                    bucket.cuda_graph = torch.cuda.CUDAGraph()
-                    with torch.cuda.graph(bucket.cuda_graph):
-                        bucket.graph_xy_dec = self.t2s_transformer.decode_next_token(
-                            bucket.graph_xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len
-                        )
-                    
+                        bucket.cuda_graph = torch.cuda.CUDAGraph()
+                        with torch.cuda.graph(bucket.cuda_graph):
+                            bucket.graph_xy_dec = self.t2s_transformer.decode_next_token(
+                                bucket.graph_xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len
+                            )
+
                     self.cuda_graph_buckets[batch_size][i] = bucket
-        
-        torch.cuda.current_stream().wait_stream(s)
+
+        if use_cuda_graph:
+            torch.cuda.current_stream().wait_stream(s)
 
     def process_batch_data(self, x, y, bert_feature, x_lens, y_lens):
         device = x.device
@@ -387,10 +397,15 @@ class Text2SemanticDecoder(nn.Module):
                 bucket: Bucket = buckets[bucket_i]
             
             bucket.graph_xy_pos.copy_(xy_pos)
-            bucket.cuda_graph.replay()
-            xy_dec = bucket.graph_xy_dec.clone()
 
-            # xy_dec = self.t2s_transformer.decode_next_token(xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len)
+            # 使用 CUDA Graph（如果可用）或普通执行
+            if bucket.cuda_graph is not None:
+                bucket.cuda_graph.replay()
+                xy_dec = bucket.graph_xy_dec.clone()
+            else:
+                xy_dec = self.t2s_transformer.decode_next_token(
+                    xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len
+                )
 
             logits = self.ar_predict_layer(xy_dec[:, -1])
 
@@ -453,10 +468,15 @@ class Text2SemanticDecoder(nn.Module):
                 bucket: Bucket = buckets[bucket_i]
             
             bucket.graph_xy_pos.copy_(xy_pos)
-            bucket.cuda_graph.replay()
-            xy_dec = bucket.graph_xy_dec.clone()
 
-            # xy_dec = self.t2s_transformer.decode_next_token(xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len)
+            # 使用 CUDA Graph（如果可用）或普通执行
+            if bucket.cuda_graph is not None:
+                bucket.cuda_graph.replay()
+                xy_dec = bucket.graph_xy_dec.clone()
+            else:
+                xy_dec = self.t2s_transformer.decode_next_token(
+                    xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len
+                )
 
             logits = self.ar_predict_layer(xy_dec[:, -1])
 
@@ -562,10 +582,15 @@ class Text2SemanticDecoder(nn.Module):
                 decode_steps += 1
 
                 bucket.graph_xy_pos.copy_(xy_pos)
-                bucket.cuda_graph.replay()
-                xy_dec = bucket.graph_xy_dec.clone()
 
-                # xy_dec = self.t2s_transformer.decode_next_token(xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len)
+                # 使用 CUDA Graph（如果可用）或普通执行
+                if bucket.cuda_graph is not None:
+                    bucket.cuda_graph.replay()
+                    xy_dec = bucket.graph_xy_dec.clone()
+                else:
+                    xy_dec = self.t2s_transformer.decode_next_token(
+                        xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len
+                    )
 
                 logits = self.ar_predict_layer(xy_dec[:, -1])
 
