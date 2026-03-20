@@ -554,6 +554,14 @@ class TTS:
             
             n_orig = len(texts)
             n_segs = len(all_segments)
+            
+            # 处理空文本段的情况
+            if n_segs == 0:
+                # 为每个原始文本添加一个空段
+                for idx, text in enumerate(texts):
+                    all_segments.append(text or " ")
+                    segment_to_original_map.append(idx)
+                n_segs = len(all_segments)
 
             def expand_input(inp):
                 return [inp[segment_to_original_map[i]] for i in range(n_segs)]

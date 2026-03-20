@@ -9,6 +9,15 @@ numpy
 py3langid
 pysbd
 onnxruntime
+gradio
+pyloudnorm
+psutil
+soundfile
+qwen_asr
+
+
+# Requires C++ compiled libraries
+pedalboard
 
 # en
 nltk
@@ -22,3 +31,4 @@ jieba
 
 # ja
 pyopenjtalk-plus
+inflect
