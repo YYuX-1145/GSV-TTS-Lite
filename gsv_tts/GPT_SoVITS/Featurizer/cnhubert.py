@@ -20,8 +20,7 @@ class CNHubert(nn.Module):
     def __init__(self, base_path, tts_config: Config):
         super().__init__()
         # 明确指定 dtype，确保 MPS 设备使用 float32
-        dtype = torch.float16 if tts_config.is_half else torch.float32
-        self.model = HubertModel.from_pretrained(base_path, local_files_only=True, torch_dtype=dtype)
+        self.model = HubertModel.from_pretrained(base_path, local_files_only=True, torch_dtype=tts_config.dtype)
         self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(base_path, local_files_only=True)
         self.eval()
         self = self.to(tts_config.device)

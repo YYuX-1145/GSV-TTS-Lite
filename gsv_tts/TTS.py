@@ -56,7 +56,7 @@ class TTS:
             is_half (bool): Whether to use half-precision (FP16) inference.
             use_flash_attn (bool): Whether to enable Flash Attention for faster inference.
             use_bert (bool): Whether to use BERT for enhanced Chinese semantic understanding.
-            use_jieba_fast (bool): Whether to use jieba-fast for faster Chinese text segmentation.
+            use_jieba_fast (bool): Whether to use jieba-fast for faster Chinese text segmentation. jieba-fast needs to be installed.
             always_load_cnhubert (bool): Whether to keep the CNHubert model loaded in VRAM. Set to True to accelerate Voice Conversion.
             always_load_sv (bool): Whether to keep the Speaker Verification model loaded in VRAM. Set to True to accelerate Speaker Verification.
         """
@@ -251,7 +251,7 @@ class TTS:
         is_cut_text: bool = True,
         cut_minlen: int = 10,
         cut_mute: int = 0.2,
-        cut_mute_scale_map: dict = {".": 1.5, "。": 1.5, "?": 1.5, "？": 1.5, "!": 1.5, "！": 1.5,",": 0.8, "，": 0.8, "、": 0.6, "・": 0.6},
+        cut_mute_scale_map: dict = {".": 1.5, "。": 1.5, "?": 1.5, "？": 1.5, "!": 1.5, "！": 1.5, "…": 1.5, ",": 0.8, "，": 0.8, ":": 0.8, "：": 0.8, ";": 0.8, "；": 0.8, "~": 0.8, "、": 0.6, "・": 0.6},
         stream_mode: Literal["token", "sentence"] = "token",
         stream_chunk: int = 25,
         overlap_len: int = 10,
@@ -455,7 +455,7 @@ class TTS:
         is_cut_text: bool = True,
         cut_minlen: int = 10,
         cut_mute: int = 0.2,
-        cut_mute_scale_map: dict = {".": 1.5, "。": 1.5, "?": 1.5, "？": 1.5, "!": 1.5, "！": 1.5,",": 0.8, "，": 0.8, "、": 0.6, "・": 0.6},
+        cut_mute_scale_map: dict = {".": 1.5, "。": 1.5, "?": 1.5, "？": 1.5, "!": 1.5, "！": 1.5, "…": 1.5, ",": 0.8, "，": 0.8, ":": 0.8, "：": 0.8, ";": 0.8, "；": 0.8, "~": 0.8, "、": 0.6, "・": 0.6},
         top_k: int = 5,
         top_p: float = 0.9,
         temperature: float = 1.0,
