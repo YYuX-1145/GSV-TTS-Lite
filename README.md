@@ -113,7 +113,7 @@ pip install gsv-tts-lite==0.3.7
 ### WebUI 可视化界面
 
 > [!TIP]
-> **独立运行环境**：WebUI 模块与本地源码解耦，它直接调用已发布的`gsv-tts-lite`。
+> WebUI 模块与本地源码解耦，它直接调用已发布的`gsv-tts-lite`。
 
 1. **安装依赖**：
   ```bash
