@@ -167,6 +167,8 @@ class Text2SemanticDecoder(nn.Module):
         self.p_dropout = config["model"]["dropout"]
         self.EOS = config["model"]["EOS"]
 
+        self.mute_tokens = [280, 486]
+
         self.bert_proj = nn.Linear(1024, self.embedding_dim)
         self.ar_text_embedding = TokenEmbedding(
             self.embedding_dim,
@@ -377,6 +379,7 @@ class Text2SemanticDecoder(nn.Module):
         top_p: int = 1.0,
         temperature: float = 1.0,
         repetition_penalty: float = 1.35,
+        initial_suppression_steps: int = 10,
     ):
         xy_pos, prompt_attn_mask = self.process_single_data(x, y, bert_feature)
 
@@ -398,6 +401,7 @@ class Text2SemanticDecoder(nn.Module):
 
         xy_dec = self.t2s_transformer.process_prompt(xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len, prompt_attn_mask)
         logits = self.ar_predict_layer(xy_dec[:, -1])
+        logits[:, self.mute_tokens] = -float("Inf")
         samples = sample(logits[:, :-1], pre_tokens, top_k=top_k, top_p=top_p, repetition_penalty=repetition_penalty, temperature=temperature)[0]
         pre_tokens = torch.concat([pre_tokens, samples], dim=1)
         y_emb = self.ar_audio_embedding(samples)
@@ -425,6 +429,9 @@ class Text2SemanticDecoder(nn.Module):
 
             logits = self.ar_predict_layer(xy_dec[:, -1])
 
+            if idx < initial_suppression_steps:
+                logits[:, self.mute_tokens] = -float("Inf")
+
             samples = sample(logits, pre_tokens, top_k=top_k, top_p=top_p, repetition_penalty=repetition_penalty, temperature=temperature)[0]
 
             if torch.argmax(logits, dim=-1)[0] == self.EOS or samples[0, 0] == self.EOS:
@@ -447,6 +454,7 @@ class Text2SemanticDecoder(nn.Module):
         top_p: int = 1.0,
         temperature: float = 1.0,
         repetition_penalty: float = 1.35,
+        initial_suppression_steps: int = 10,
         stream_chunk: int = 25,
         boost_first_chunk: bool = True,
         debug: bool = True,
@@ -471,6 +479,7 @@ class Text2SemanticDecoder(nn.Module):
 
         xy_dec = self.t2s_transformer.process_prompt(xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len, prompt_attn_mask)
         logits = self.ar_predict_layer(xy_dec[:, -1])
+        logits[:, self.mute_tokens] = -float("Inf")
         samples = sample(logits[:, :-1], pre_tokens, top_k=top_k, top_p=top_p, repetition_penalty=repetition_penalty, temperature=temperature)[0]
         pre_tokens = torch.concat([pre_tokens, samples], dim=1)
         y_emb = self.ar_audio_embedding(samples)
@@ -499,6 +508,9 @@ class Text2SemanticDecoder(nn.Module):
                 )
 
             logits = self.ar_predict_layer(xy_dec[:, -1])
+
+            if idx < initial_suppression_steps:
+                logits[:, self.mute_tokens] = -float("Inf")
 
             samples = sample(logits, pre_tokens, top_k=top_k, top_p=top_p, repetition_penalty=repetition_penalty, temperature=temperature)[0]
 

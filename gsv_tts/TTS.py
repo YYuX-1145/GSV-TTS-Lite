@@ -403,10 +403,6 @@ class TTS:
                     subtitles = self._get_subtitles(word2ph, assign, speed, last_end_s=last_end_s)
 
                     if is_final:
-                        tail_offset = self._find_threshold_offsets(audio)
-                        audio = audio[:-tail_offset]
-                        subtitles[-1]['end_s'] -= tail_offset / self.samplerate
-
                         if text_cut[-1] in cut_mute_scale_map:
                             cut_mute_scale = cut_mute_scale_map[text_cut[-1]]
                         else:
@@ -741,7 +737,12 @@ class TTS:
                         audio = audio_batch[last_actual_len:actual_len]
 
                         head_offset = self._find_quietest_offsets(audio)
-                        tail_offset = self._find_threshold_offsets(audio)
+                        audio = audio[head_offset:]
+
+                        subtitle[0]["start_s"] += head_offset / self.samplerate
+
+                        head_offset = self._find_head_threshold_offsets(audio)
+                        tail_offset = self._find_tail_threshold_offsets(audio)
                         audio = self._fade(audio[head_offset:-tail_offset]).cpu().numpy()
 
                         subtitle[0]["start_s"] += head_offset / self.samplerate
@@ -759,7 +760,10 @@ class TTS:
                         last_actual_len = actual_len
 
                         head_offset = self._find_quietest_offsets(audio)
-                        tail_offset = self._find_threshold_offsets(audio)
+                        audio = audio[head_offset:]
+
+                        head_offset = self._find_head_threshold_offsets(audio)
+                        tail_offset = self._find_tail_threshold_offsets(audio)
                         audio = self._fade(audio[head_offset:-tail_offset]).cpu().numpy()
 
                         generated_audios.append(audio)
@@ -1375,9 +1379,10 @@ class TTS:
 
         wav16k = self._resample(wav, sr, 16000).mean(dim=0)
         wav16k = wav16k.half() if self.tts_config.is_half else wav16k
-
-        tail_offset = self._find_threshold_offsets(wav16k)
-        wav16k = wav16k[:-tail_offset]
+        
+        head_offset = self._find_head_threshold_offsets(wav16k)
+        tail_offset = self._find_tail_threshold_offsets(wav16k)
+        wav16k = wav16k[head_offset:-tail_offset]
 
         silence = torch.zeros(int(16000 * 0.3), device=wav16k.device, dtype=wav16k.dtype)
         wav16k = torch.cat([wav16k, silence])
@@ -1440,7 +1445,7 @@ class TTS:
         f2_real = torch.cat([f_faded, f2_aligned[:, :, overlap_len:]], dim=-1)
         return f2_real, offset
     
-    def _find_quietest_offsets(self, audio, frame_length=512, hop_length=256, search_len=3200):
+    def _find_quietest_offsets(self, audio, frame_length=512, hop_length=256, search_len=6400):
         search_audio = audio[:search_len]
         frames = search_audio.unfold(0, frame_length, hop_length)
         rms_values = torch.sqrt(torch.mean(frames**2, dim=1))
@@ -1448,8 +1453,26 @@ class TTS:
         head_offset = best_frame_idx * hop_length
         
         return head_offset
+    
+    def _find_head_threshold_offsets(self, audio, threshold=0.01, frame_length=512, hop_length=256, search_len=16000):
+        threshold = threshold * audio.max()
 
-    def _find_threshold_offsets(self, audio, threshold=0.01, frame_length=512, hop_length=256, search_len=3200):
+        search_audio_head = audio[:search_len]
+        frames_head = search_audio_head.unfold(0, frame_length, hop_length)
+        rms_head = torch.sqrt(torch.mean(frames_head**2, dim=1))
+        
+        head_mask = rms_head > threshold
+        head_indices = torch.nonzero(head_mask)
+        
+        if head_indices.numel() > 0:
+            head_frame_idx = head_indices[0].item()
+            head_offset = head_frame_idx * hop_length
+        else:
+            head_offset = 1
+            
+        return head_offset
+
+    def _find_tail_threshold_offsets(self, audio, threshold=0.01, frame_length=512, hop_length=256, search_len=16000):
         threshold = threshold * audio.max()
 
         search_audio_tail = audio[-search_len:]
