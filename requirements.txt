@@ -9,6 +9,7 @@ py3langid
 pysbd
 onnxruntime
 soundfile
+requests
 
 # en
 nltk
