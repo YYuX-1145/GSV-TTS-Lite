@@ -68,7 +68,7 @@ def get_phones_and_bert(texts, tts_config: Config):
     batch_bert = []
     batch_norm_text = []
 
-    bert_tasks = {"pos":[], "norm_text":[], "word2ph":[]}
+    bert_tasks = {"pos":[], "word2ph":[]}
 
     for text in texts:
         segments = LangSegment.getTexts(text)
@@ -86,8 +86,7 @@ def get_phones_and_bert(texts, tts_config: Config):
             word2ph["ph"] += _word2ph["ph"]
             if tts_config.cnroberta and segment['lang'] == "zh":
                 bert_tasks["pos"].append((len(batch_bert) - 1, len(batch_bert[-1])))
-                bert_tasks["norm_text"].append(norm_text)
-                bert_tasks["word2ph"].append(_word2ph["ph"])
+                bert_tasks["word2ph"].append(_word2ph)
                 batch_bert[-1].append(None)
             else:
                 batch_bert[-1].append(torch.zeros((len(phones), 1024), dtype=tts_config.dtype, device=tts_config.device))
@@ -102,8 +101,8 @@ def get_phones_and_bert(texts, tts_config: Config):
         batch_word2ph.append(word2ph)
         batch_norm_text.append(norm_text)
     
-    if bert_tasks["norm_text"] and bert_tasks["word2ph"]:
-        berts = tts_config.cnroberta(bert_tasks["norm_text"], bert_tasks["word2ph"])
+    if bert_tasks["word2ph"]:
+        berts = tts_config.cnroberta(bert_tasks["word2ph"])
         for (i, j), bert in zip(bert_tasks["pos"], berts):
             batch_bert[i][j] = bert
     

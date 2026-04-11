@@ -12,8 +12,10 @@ class CNRoberta(nn.Module):
         self.bert_model.eval()
         self.bert_model.to(tts_config.device, tts_config.dtype)
     
-    def forward(self, texts: List[str], word2ph_list: List[List[int]]):
+    def forward(self, word2ph_list: List):
         with torch.no_grad():
+            texts = ["".join(word2ph["word"]) for word2ph in word2ph_list]
+
             inputs = self.tokenizer(
                 texts, 
                 return_tensors="pt", 
@@ -31,7 +33,7 @@ class CNRoberta(nn.Module):
                 char_features = hidden_states[i][mask]
                 char_features = char_features[1:-1, :]
                 
-                repeats = torch.tensor(word2ph_list[i], device=char_features.device)
+                repeats = torch.tensor(word2ph_list[i]["ph"], device=char_features.device)
                 phone_feature = torch.repeat_interleave(char_features, repeats, dim=0)
                 
                 batch_phone_features.append(phone_feature)
