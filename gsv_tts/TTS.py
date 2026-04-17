@@ -76,6 +76,8 @@ class TTS:
         
         if not device is None:
             self.tts_config.device = torch.device(device)
+            if self.tts_config.device.type in ["mps", "cpu"]:
+                self.tts_config.dtype = torch.float32
         if not dtype is None:
             dtype_map = {
                 "float32": torch.float32,
@@ -1699,9 +1701,9 @@ class TTS:
     def _empty_cache(self):
         try:
             gc.collect()
-            if self.tts_config.device_type == "cuda":
+            if self.tts_config.device.type == "cuda":
                 torch.cuda.empty_cache()
-            elif self.tts_config.device_type == "mps":
+            elif self.tts_config.device.type == "mps":
                 torch.mps.empty_cache()
         except:
             pass

@@ -394,8 +394,6 @@ class Text2SemanticDecoder(nn.Module):
         max_bucket: Bucket = buckets[-1]
 
         max_bucket.kv_cache_len.fill_(0)
-        max_bucket.k_cache.fill_(0)
-        max_bucket.v_cache.fill_(0)
 
         pe_cache = self.ar_audio_position.alpha * self.ar_audio_position.pe
         pe_cache = pe_cache.transpose(0, 1)
@@ -424,7 +422,7 @@ class Text2SemanticDecoder(nn.Module):
             if bucket.cuda_graph is not None:
                 bucket.graph_xy_pos.copy_(xy_pos)
                 bucket.cuda_graph.replay()
-                xy_dec = bucket.graph_xy_dec.clone()
+                xy_dec = bucket.graph_xy_dec
             else:
                 xy_dec = self.t2s_transformer.decode_next_token(
                     xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len, bucket.decode_attn_mask, bucket.batch_indices
@@ -472,8 +470,6 @@ class Text2SemanticDecoder(nn.Module):
         max_bucket: Bucket = buckets[-1]
 
         max_bucket.kv_cache_len.fill_(0)
-        max_bucket.k_cache.fill_(0)
-        max_bucket.v_cache.fill_(0)
 
         pe_cache = self.ar_audio_position.alpha * self.ar_audio_position.pe
         pe_cache = pe_cache.transpose(0, 1)
@@ -504,7 +500,7 @@ class Text2SemanticDecoder(nn.Module):
             if bucket.cuda_graph is not None:
                 bucket.graph_xy_pos.copy_(xy_pos)
                 bucket.cuda_graph.replay()
-                xy_dec = bucket.graph_xy_dec.clone()
+                xy_dec = bucket.graph_xy_dec
             else:
                 xy_dec = self.t2s_transformer.decode_next_token(
                     xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len, bucket.decode_attn_mask, bucket.batch_indices
@@ -581,8 +577,6 @@ class Text2SemanticDecoder(nn.Module):
         max_bucket: Bucket = buckets[-1]
             
         max_bucket.kv_cache_len.fill_(0)
-        max_bucket.k_cache.fill_(0)
-        max_bucket.v_cache.fill_(0)
 
         current_batch = actual_batch_size
 
@@ -628,7 +622,7 @@ class Text2SemanticDecoder(nn.Module):
                 if bucket.cuda_graph is not None:
                     bucket.graph_xy_pos.copy_(xy_pos)
                     bucket.cuda_graph.replay()
-                    xy_dec = bucket.graph_xy_dec.clone()
+                    xy_dec = bucket.graph_xy_dec
                 else:
                     xy_dec = self.t2s_transformer.decode_next_token(
                         xy_pos, bucket.k_cache, bucket.v_cache, bucket.kv_cache_len, bucket.decode_attn_mask, bucket.batch_indices
@@ -683,7 +677,6 @@ class Text2SemanticDecoder(nn.Module):
 
                             x_lens[i].copy_(single_x.shape[0])
                             bucket.kv_cache_len[i].copy_(single_x.shape[0] + single_y.shape[0])
-                            pre_tokens[i].fill_(0)
                             pre_tokens[i, :single_y.shape[0]] = single_y
 
                             new_samples = sample(logits[:, :-1], pre_tokens[i:i+1], top_k=top_k, top_p=top_p, repetition_penalty=repetition_penalty, temperature=temperature)[0]

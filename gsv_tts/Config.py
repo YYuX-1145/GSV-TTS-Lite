@@ -53,7 +53,6 @@ def get_mps_device_info():
 
 # 检测设备类型和配置
 device = None
-device_type = "cpu"
 dtype = None
 
 # 优先尝试 CUDA
@@ -69,7 +68,6 @@ if torch.cuda.is_available():
         best_info = max(available_devices, key=lambda x: (x[2], x[3]))
         device = best_info[0]
         dtype = best_info[1]
-        device_type = "cuda"
 
 # 如果没有 CUDA，尝试 MPS (Apple Silicon)
 if device is None:
@@ -77,20 +75,17 @@ if device is None:
     if mps_info is not None:
         device = mps_info[0]
         dtype = torch.float32  # MPS 使用 float32
-        device_type = "mps"
 
 # 如果没有可用的 GPU，使用 CPU
 if device is None:
     device = torch.device("cpu")
     dtype = torch.float32  # CPU 使用 float32
-    device_type = "cpu"
 
 
 class Config:
     def __init__(self):
         self.dtype = dtype
         self.device = device
-        self.device_type = device_type  # 'cuda', 'mps', 或 'cpu'
 
         self.use_flash_attn = False
 
