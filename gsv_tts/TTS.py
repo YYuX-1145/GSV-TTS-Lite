@@ -420,7 +420,10 @@ class TTS:
                     audio = audio[0, 0, :]
 
                     assign = self._viterbi_monotonic(attn)
-                    subtitles = self._get_subtitles(word2ph, assign, speed, last_end_s=last_end_s)
+                    if self._is_normal_assign(assign):
+                        subtitles = self._get_subtitles(word2ph, assign, speed, last_end_s=last_end_s)
+                    else:
+                        subtitles = []
 
                     if is_final:
                         if text_cut[-1] in cut_mute_scale_map:
@@ -536,6 +539,7 @@ class TTS:
             texts = [t if self._check_pause(t) else t + "." for t in texts]
 
             if not is_cut_text: cut_minlen = 10000
+            cut_mute = cut_mute / speed
 
             n = len(texts)
 
@@ -740,7 +744,7 @@ class TTS:
                     assign = self._viterbi_monotonic(attn)
                     subtitles = self._get_subtitles(curr_word2ph, assign, speed)
 
-                    if not self.check_pause(subtitles[-1]['text']):
+                    if not self._check_pause(subtitles[-1]['text']):
                         subtitles.append({
                             "text": curr_word2ph['word'][-1],
                             "start_s": subtitles[-1]['end_s'],
@@ -754,7 +758,7 @@ class TTS:
                 if return_subtitles:
                     last_i = 0
                     for j in range(len(semantic_list)):
-                        best_i = self._find_subtitles_by_text(subtitles, all_norm_text[curr_orig_indices[j]], last_i)
+                        best_i = self._find_subtitles(subtitles, all_word2ph[curr_orig_indices[j]], last_i)
                         subtitle = subtitles[last_i:best_i]
                         last_i = best_i
                         
@@ -816,7 +820,7 @@ class TTS:
                     cut_mute_scale = cut_mute_scale_map["…"]
                 else:
                     cut_mute_scale = 1.0
-                silence = np.zeros((int(cut_mute * cut_mute_scale * self.samplerate),))
+                silence = np.zeros((int(cut_mute * cut_mute_scale * self.samplerate),), dtype=audio_data.dtype)
                 final_ordered_audios[orig_idx].append(silence)
 
                 if return_subtitles:
@@ -1597,19 +1601,14 @@ class TTS:
         
         return subtitles
 
-    def _find_subtitles_by_text(self, subtitles, text, last_i):
-        text = text.replace(" ", "")
-        m = 0
-        for i in range(last_i, len(subtitles)):
-            subtitle = subtitles[i]
-            if subtitle["text"] == text[m:m+len(subtitle["text"])]:
-                m += len(subtitle["text"])
-            else:
+    def _find_subtitles(self, subtitles, word2ph, last_i):
+        target_seq = " ".join(word2ph["word"])
+        w = len(word2ph["word"])
+        for i in range(last_i, len(subtitles)-w+1):
+            sub_text = " ".join([subtitle["text"] for subtitle in subtitles[i:i+w]])
+            if sub_text == target_seq:
                 break
-        else:
-            i = len(subtitles)
-        
-        return i
+        return i+w
     
     def _cat_subtitles(self, *subtitles_list):
         last_end_s = 0
@@ -1683,6 +1682,18 @@ class TTS:
         assign_path[:first_zero_idx] = -1
 
         return assign_path
+    
+    def _is_normal_assign(self, assign, threshold=0.5):
+        x = assign[assign != -1]
+        
+        if len(x) == 0:
+            return False
+
+        _, counts = torch.unique_consecutive(x, return_counts=True)
+        singletons = (counts == 1).sum().float()
+        ratio = singletons / len(counts)
+
+        return ratio < threshold
     
     def _load_audio(self, audio_path):
         # 摆脱FFmpeg繁琐的手动安装
