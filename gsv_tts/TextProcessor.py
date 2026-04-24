@@ -18,13 +18,14 @@ def get_semantic_length(text, en_weight=1.75):
 def cut_text(text, cut_minlen=10):
     sentences = seg.segment(text)
 
-    for i in range(1, len(sentences)):
-        if sentences[i][0] in ['!', '！', '?', '？', '.']:
-            sentences[i-1] += sentences[i][0]
-            sentences[i] = sentences[i][1:]
+    for i in text:
+        if i == '\n':
+            sentences[0] = '\n'+sentences[0]
+        else:
+            break
     
     text_cuts = []
-    punds_pattern = r'([，,；;：:、~・…]+)'
+    punds_pattern = r'([，,；;：:、~・…]+|[\.。]{2,})'
 
     clauses = []
     for sentence in sentences:
@@ -49,6 +50,11 @@ def cut_text(text, cut_minlen=10):
             text_cuts[-1] += current_segment
         else:
             text_cuts.append(current_segment)
+
+    for i in range(1, len(text_cuts)):
+        while text_cuts[i][0] in ['!', '！', '?', '？', '.', '。']:
+            text_cuts[i-1] += text_cuts[i][0]
+            text_cuts[i] = text_cuts[i][1:]
 
     # 确保至少返回一个非空文本段
     if not text_cuts and text:

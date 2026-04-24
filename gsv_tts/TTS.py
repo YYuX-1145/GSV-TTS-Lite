@@ -78,6 +78,7 @@ class TTS:
             self.tts_config.device = torch.device(device)
             if self.tts_config.device.type in ["mps", "cpu"]:
                 self.tts_config.dtype = torch.float32
+                sovits_cache = []
         if not dtype is None:
             dtype_map = {
                 "float32": torch.float32,
@@ -280,7 +281,7 @@ class TTS:
         text: str,
         is_cut_text: bool = True,
         cut_minlen: int = 10,
-        cut_mute: int = 0.4,
+        cut_mute: int = 0.3,
         cut_mute_scale_map: dict = {"…": 2.0, ".": 1.5, "。": 1.5, "?": 1.5, "？": 1.5, "!": 1.5, "！": 1.5, ",": 0.8, "，": 0.8, ":": 0.8, "：": 0.8, ";": 0.8, "；": 0.8, "~": 0.8, "、": 0.6, "・": 0.6},
         stream_mode: Literal["token", "sentence"] = "token",
         stream_chunk: int = 25,
@@ -426,7 +427,7 @@ class TTS:
                     audio = audio[0, 0, :]
 
                     assign = self._viterbi_monotonic(attn)
-                    if self._is_normal_assign(assign):
+                    if self._is_normal_assign(assign) or is_final:
                         subtitles = self._get_subtitles(word2ph, assign, speed, last_end_s=last_end_s)
                     else:
                         subtitles = []
@@ -1620,6 +1621,8 @@ class TTS:
             sub_text = " ".join([subtitle["text"] for subtitle in subtitles[i:i+w]])
             if sub_text == target_seq:
                 break
+        else:
+            i = len(subtitles)-w
         return i+w
     
     def _cat_subtitles(self, *subtitles_list):
