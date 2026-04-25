@@ -62,6 +62,14 @@ The currently supported languages are **Chinese, Japanese, and English**. The av
 | **Lite Version** | `Flash_Attn=Off` | 150 ms | 0.125 | **0.8 GB** | ⚡ **2.9x** Speed |
 | **Lite Version** | `Flash_Attn=On` | **133 ms** | **0.108** | **0.8 GB** | 🔥 **3.3x** Speed |
 
+| GPU Model | Throughput (it/s) | FlashAttention2 |
+| :--- | :---: | :---: |
+| **RTX-PRO-6000** | 1122.72 | Enable |
+| **A100** | 660.73 | Enable |
+| **T4** | 243.45 | Disabled |
+
+**Core optimization technologies:** CUDA Graph, Nested KV Cache, and Continuous Batching.
+
 As shown, **GSV-TTS-Lite** achieves **3x ~ 4x** speed improvements while **halving** the VRAM usage! 🚀
 <br>
 
