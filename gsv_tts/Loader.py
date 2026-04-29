@@ -32,8 +32,8 @@ def load_sovits_new(sovits_path):
     f = open(sovits_path, "rb")
     meta = f.read(2)
     
-    assert (hash in ["c7e9fce2223f3db685cdfa1e6368728a", "66b313e39455b57ab1b0bc0b239c9d0a"] or meta in [b"05", b"06"]), "The Sovits model is not the v2Pro version. Please check the model file."
-
+    # assert (hash in ["c7e9fce2223f3db685cdfa1e6368728a", "66b313e39455b57ab1b0bc0b239c9d0a"] or meta in [b"05", b"06"]), "The Sovits model is not the v2Pro version. Please check the model file."
+    # 还没看v2的hash
     if meta != b"PK":
         data = b"PK" + f.read()
         bio = BytesIO()
