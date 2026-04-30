@@ -80,7 +80,7 @@ class JapaneseG2P:
             if drop_unvoiced_vowels and p3 in "AEIOU":
                 p3 = p3.lower()
 
-            has_other = False
+            prosody_mark = None
             if p3 not in ["sil", "pau"]:
                 a1 = self._numeric_feature_by_regex(r"/A:([0-9\-]+)\+", lab_curr)
                 a2 = self._numeric_feature_by_regex(r"\+(\d+)\+", lab_curr)
@@ -89,16 +89,13 @@ class JapaneseG2P:
                 a2_next = self._numeric_feature_by_regex(r"\+(\d+)\+", labels[n + 1]) if n+1 < N else -1
 
                 if a3 == 1 and a2_next == 1 and p3 in "aeiouAEIOUNcl":
-                    phones.append("#")
-                    has_other = True
+                    prosody_mark = "#"
                 elif a1 == 0 and a2_next == a2 + 1 and a2 != f1:
-                    phones.append("]")
-                    has_other = True
+                    prosody_mark = "]"
                 elif a2 == 1 and a2_next == 2:
-                    phones.append("[")
-                    has_other = True
+                    prosody_mark = "["
                 
-                if has_other:
+                if prosody_mark is not None:
                     node_phone_counts[node_idx] += 1
 
             res_p = None
@@ -131,6 +128,9 @@ class JapaneseG2P:
                     while node_idx < len(features) - 1 and current_base_consumed >= expected_base_counts[node_idx]:
                         current_base_consumed -= expected_base_counts[node_idx] # 清空已用配额
                         node_idx += 1 # 指针推向下个词
+            
+            if prosody_mark:
+                phones.append(prosody_mark)
 
         for i, node in enumerate(features):
             surface = node['string']
