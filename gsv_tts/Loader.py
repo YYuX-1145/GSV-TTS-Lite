@@ -14,6 +14,19 @@ import sys
 sys.modules['utils'] = utils
 
 
+head2version = {
+    b"01": "v2",
+    b"05": "v2Pro",
+    b"06": "v2ProPlus",
+}
+hash_pretrained_dict = {
+    "dc3c97e17592963677a4a1681f30c653": "v2",  # s2G488k.pth#sovits_v1_pretrained
+    "6642b37f3dbb1f76882b69937c95a5f3": "v2",  # s2G2333K.pth#sovits_v2_pretrained
+    "c7e9fce2223f3db685cdfa1e6368728a": "v2Pro",  # s2Gv2Pro.pth#sovits_v2Pro_pretrained
+    "66b313e39455b57ab1b0bc0b239c9d0a": "v2ProPlus",  # s2Gv2ProPlus.pth#sovits_v2ProPlus_pretrained
+}
+
+
 class Sovits:
     def __init__(self, vq_model, hps):
         self.vq_model: SynthesizerTrn = vq_model
@@ -26,21 +39,24 @@ def get_hash_from_file(sovits_path):
     hash_md5.update(data)
     return hash_md5.hexdigest()
 
-def load_sovits_new(sovits_path):
+def load_sovits(sovits_path):
     hash = get_hash_from_file(sovits_path)
 
     f = open(sovits_path, "rb")
     meta = f.read(2)
-    
-    assert (hash in ["dc3c97e17592963677a4a1681f30c653", "6642b37f3dbb1f76882b69937c95a5f3", "c7e9fce2223f3db685cdfa1e6368728a", "66b313e39455b57ab1b0bc0b239c9d0a"] or meta in [b"01", b"05", b"06"]), "The Sovits model is not the v2 version. Please check the model file."
 
+    version = head2version.get(meta)
+    if version is None: version = hash_pretrained_dict.get(hash)
+    
+    assert version is not None, "The Sovits model is not the v2/v2pro/v2proplus version. Please check the model file."
+    
     if meta != b"PK":
         data = b"PK" + f.read()
         bio = BytesIO()
         bio.write(data)
         bio.seek(0)
-        return torch.load(bio, map_location="cpu", weights_only=False)
-    return torch.load(sovits_path, map_location="cpu", weights_only=False)
+        return torch.load(bio, map_location="cpu", weights_only=False), version
+    return torch.load(sovits_path, map_location="cpu", weights_only=False), version
 
 def get_sovits_weights(sovits_path, tts_config: Config):
     if os.path.isdir(sovits_path):
@@ -61,10 +77,11 @@ def get_sovits_weights(sovits_path, tts_config: Config):
         vq_model = vq_model.to(tts_config.dtype)
         load_model(vq_model, os.path.join(sovits_path, "model.safetensors"))
     else:
-        dict_s2 = load_sovits_new(sovits_path)
+        dict_s2, version = load_sovits(sovits_path)
         
         hps = utils.DictToAttrRecursive(dict_s2["config"])
         hps.model.semantic_frame_rate = "25hz"
+        hps.model.version = version
         
         vq_model = SynthesizerTrn(
             hps.data.filter_length // 2 + 1,
