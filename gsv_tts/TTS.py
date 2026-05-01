@@ -153,6 +153,7 @@ class TTS:
         prompt_audio_path: str,
         prompt_audio_text: str,
         text: str,
+        return_subtitles: bool = False,
         top_k: int = 15,
         top_p: float = 1.0,
         temperature: float = 1.0,
@@ -172,6 +173,7 @@ class TTS:
             prompt_audio_path (str): Path to the prompt audio file (reference audio for tone/style).
             prompt_audio_text (str): The transcription (text content) of the prompt audio.
             text (str): The target text to be synthesized into speech.
+            return_subtitles (bool, optional): Whether to return subtitle information (timestamps) for the generated audio.
             top_k (int, optional): Sampling parameter for the GPT model. Limits the next token selection to the top K most probable tokens.
             top_p (float, optional): Sampling parameter for the GPT model. Limits the next token selection to a cumulative probability of P.
             temperature (float, optional): Sampling temperature for the GPT model. Higher values make the output more random/expressive; lower values make it more deterministic.
@@ -246,17 +248,21 @@ class TTS:
 
             audio = audio[0, 0, :].float().cpu().numpy()
             assign = self._viterbi_monotonic(attn)
-            subtitles = self._get_subtitles(word2ph, assign, speed)
+            
+            if return_subtitles:
+                subtitles = self._get_subtitles(word2ph, assign, speed)
 
-            if not self._check_pause(subtitles[-1]['text']):
-                subtitles.append({
-                    "text": word2ph['word'][-1],
-                    "start_s": subtitles[-1]['end_s'],
-                    "end_s": subtitles[-1]['end_s']
-                })
-            subtitles[-1]['end_s'] += 0.2
+                if not self._check_pause(subtitles[-1]['text']):
+                    subtitles.append({
+                        "text": word2ph['word'][-1],
+                        "start_s": subtitles[-1]['end_s'],
+                        "end_s": subtitles[-1]['end_s']
+                    })
+                subtitles[-1]['end_s'] += 0.2
 
-            subtitles = sub2text_index(subtitles, norm_text, text)
+                subtitles = sub2text_index(subtitles, norm_text, text)
+            else:
+                subtitles = None
 
             max_audio = np.abs(audio).max()
             if max_audio > 1:
@@ -279,6 +285,7 @@ class TTS:
         prompt_audio_path: str,
         prompt_audio_text: str,
         text: str,
+        return_subtitles: bool = False,
         is_cut_text: bool = True,
         cut_minlen: int = 10,
         cut_mute: int = 0.3,
@@ -307,6 +314,7 @@ class TTS:
             prompt_audio_path (str): Path to the prompt audio file (reference audio for tone/style).
             prompt_audio_text (str): The transcription (text content) of the prompt audio.
             text (str): The target text to be synthesized into speech.
+            return_subtitles (bool, optional): Whether to return subtitle information (timestamps) for the generated audio.
             is_cut_text (bool, optional): Whether to split the input text into smaller segments based on punctuation.
             cut_minlen (int, optional): The minimum length of a text segment. Segments shorter than this will be merged.
             cut_mute (float, optional): Duration of silence (in seconds) to insert between text segments.
@@ -426,11 +434,12 @@ class TTS:
                     
                     audio = audio[0, 0, :]
 
-                    assign = self._viterbi_monotonic(attn)
-                    if self._is_normal_assign(assign) or is_final:
-                        subtitles = self._get_subtitles(word2ph, assign, speed, last_end_s=last_end_s)
-                    else:
-                        subtitles = []
+                    if return_subtitles:
+                        assign = self._viterbi_monotonic(attn)
+                        if self._is_normal_assign(assign) or is_final:
+                            subtitles = self._get_subtitles(word2ph, assign, speed, last_end_s=last_end_s)
+                        else:
+                            subtitles = []
 
                     if is_final:
                         if text_cut[-1] in cut_mute_scale_map:
@@ -443,23 +452,27 @@ class TTS:
                         silence = torch.zeros((int(cut_mute * cut_mute_scale * self.samplerate),), dtype=audio.dtype, device=audio.device)
                         audio = torch.concatenate([audio, silence])
 
-                        if not self._check_pause(subtitles[-1]['text']):
-                            subtitles.append({
-                                "text": word2ph['word'][-1],
-                                "start_s": subtitles[-1]['end_s'],
-                                "end_s": subtitles[-1]['end_s']
-                            })
-                        subtitles[-1]['end_s'] += cut_mute * cut_mute_scale
-                        last_end_s = subtitles[-1]['end_s']
+                        if return_subtitles:
+                            if not self._check_pause(subtitles[-1]['text']):
+                                subtitles.append({
+                                    "text": word2ph['word'][-1],
+                                    "start_s": subtitles[-1]['end_s'],
+                                    "end_s": subtitles[-1]['end_s']
+                                })
+                            subtitles[-1]['end_s'] += cut_mute * cut_mute_scale
+                            last_end_s = subtitles[-1]['end_s']
 
-                    if subtitles:
-                        subtitles = sub2text_index(subtitles, norm_text, text_cut)
-                        self._increment_subtitle_indices(subtitles, cur_text_l)
-                        new_subtitles = subtitles[last_subtitles_end:]
-                        last_subtitles_end = len(subtitles)-1
-                        if not is_final and new_subtitles: new_subtitles[-1]['end_s'] = None
+                    if return_subtitles:
+                        if subtitles:
+                            subtitles = sub2text_index(subtitles, norm_text, text_cut)
+                            self._increment_subtitle_indices(subtitles, cur_text_l)
+                            new_subtitles = subtitles[last_subtitles_end:]
+                            last_subtitles_end = len(subtitles)-1
+                            if not is_final and new_subtitles: new_subtitles[-1]['end_s'] = None
+                        else:
+                            new_subtitles = []
                     else:
-                        new_subtitles = []
+                        new_subtitles = None
 
                     audio = audio.float().cpu().numpy()
 
@@ -595,14 +608,6 @@ class TTS:
             
             n_orig = len(texts)
             n_segs = len(all_segments)
-            
-            # 处理空文本段的情况
-            if n_segs == 0:
-                # 为每个原始文本添加一个空段
-                for idx, text in enumerate(texts):
-                    all_segments.append(text or " ")
-                    segment_to_original_map.append(idx)
-                n_segs = len(all_segments)
 
             def expand_input(inp):
                 return [inp[segment_to_original_map[i]] for i in range(n_segs)]

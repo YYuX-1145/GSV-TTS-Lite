@@ -56,10 +56,6 @@ def cut_text(text, cut_minlen=10):
             text_cuts[i-1] += text_cuts[i][0]
             text_cuts[i] = text_cuts[i][1:]
 
-    # 确保至少返回一个非空文本段
-    if not text_cuts and text:
-        text_cuts.append(text)
-
     return text_cuts
 
 
@@ -112,14 +108,9 @@ def get_phones_and_bert(texts, tts_config: Config):
         for (i, j), bert in zip(bert_tasks["pos"], berts):
             batch_bert[i][j] = bert
     
-    # 处理空的bert_tensors列表
     processed_batch_bert = []
     for bert_tensors in batch_bert:
-        if len(bert_tensors) > 0:
-            processed_batch_bert.append(torch.cat(bert_tensors))
-        else:
-            # 如果为空，添加一个默认的零张量
-            processed_batch_bert.append(torch.zeros((0, 1024), dtype=tts_config.dtype, device=tts_config.device))
+        processed_batch_bert.append(torch.cat(bert_tensors))
     batch_bert = processed_batch_bert
 
     if is_batch:

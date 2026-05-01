@@ -144,13 +144,20 @@ def check_pretrained_models(models_dir):
             )
 
 
-cnroberta_int8_base_url = "https://modelscope.cn/models/ltyytn/cnroberta_int8_dynamic/resolve/master/%s"
-
+cnroberta_int8_modelscope_base_url = "https://modelscope.cn/models/ltyytn/cnroberta_int8_dynamic/resolve/master/%s"
+cnroberta_int8_huggingface_base_url = "https://huggingface.co/cnmds/GPTSoVITS-RT/resolve/main/int8/cnroberta/%s?download=true"
 
 def download_cnroberta_int8(dir, download_url=None):
     """下载 CNRoberta INT8 Dynamic ONNX 模型"""
     if download_url is None:
-        download_url = cnroberta_int8_base_url
+        global base_url
+        if base_url is None:
+            base_url = get_base_url()
+        
+        if base_url == modelscope_base_url:
+            download_url = cnroberta_int8_modelscope_base_url
+        else:
+            download_url = cnroberta_int8_huggingface_base_url
     
     os.makedirs(dir, exist_ok=True)
     

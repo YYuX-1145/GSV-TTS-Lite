@@ -32,8 +32,8 @@ def load_sovits_new(sovits_path):
     f = open(sovits_path, "rb")
     meta = f.read(2)
     
-    # assert (hash in ["c7e9fce2223f3db685cdfa1e6368728a", "66b313e39455b57ab1b0bc0b239c9d0a"] or meta in [b"05", b"06"]), "The Sovits model is not the v2Pro version. Please check the model file."
-    # 还没看v2的hash
+    assert (hash in ["dc3c97e17592963677a4a1681f30c653", "6642b37f3dbb1f76882b69937c95a5f3", "c7e9fce2223f3db685cdfa1e6368728a", "66b313e39455b57ab1b0bc0b239c9d0a"] or meta in [b"01", b"05", b"06"]), "The Sovits model is not the v2 version. Please check the model file."
+
     if meta != b"PK":
         data = b"PK" + f.read()
         bio = BytesIO()
@@ -78,7 +78,7 @@ def get_sovits_weights(sovits_path, tts_config: Config):
         vq_model.to(tts_config.device, tts_config.dtype)
 
     vq_model.eval()
-    vq_model.warmup(tts_config.dtype, tts_config.device, tts_config.sovits_cache, tts_config.compile_mode)
+    vq_model.initialize_runtime(tts_config.dtype, tts_config.device, tts_config.sovits_cache, tts_config.compile_mode)
 
     sovits = Sovits(vq_model, hps)
 
@@ -145,7 +145,7 @@ def get_gpt_weights(gpt_path, tts_config: Config):
         t2s_model = t2s_model.to(tts_config.device, tts_config.dtype)
 
     t2s_model.eval()
-    t2s_model.warmup(tts_config.dtype, tts_config.device, tts_config.gpt_cache, tts_config.compile_mode)
+    t2s_model.initialize_runtime(tts_config.dtype, tts_config.device, tts_config.gpt_cache, tts_config.compile_mode)
 
     gpt = Gpt(t2s_model, config)
 

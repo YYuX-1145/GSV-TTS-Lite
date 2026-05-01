@@ -255,7 +255,7 @@ class SynthesizerTrn(nn.Module):
         gin_channels=0,
         semantic_frame_rate="25hz",
         freeze_quantizer=None,
-        version="v2ProPlus",
+        version="v2",
         **kwargs,
     ):
         super().__init__()
@@ -306,10 +306,8 @@ class SynthesizerTrn(nn.Module):
 
         ssl_dim = 768
 
-        if self.semantic_frame_rate == "25hz":
-            self.ssl_proj = nn.Conv1d(ssl_dim, ssl_dim, 2, stride=2)
-        else:  # 原版写死25hz了，这个分支不确定是否该去掉
-            self.ssl_proj = nn.Conv1d(ssl_dim, ssl_dim, 1, stride=1)
+        # gsv_tts\Loader.py已经写死25hz了，暂定
+        self.ssl_proj = nn.Conv1d(ssl_dim, ssl_dim, 2, stride=2)
 
         self.quantizer = ResidualVectorQuantizer(dimension=ssl_dim, n_q=1, bins=1024)
         self.freeze_quantizer = freeze_quantizer
@@ -322,7 +320,7 @@ class SynthesizerTrn(nn.Module):
         self.cuda_graph_buckets = {}
 
     @torch.inference_mode()
-    def warmup(self, dtype, device, sovits_caches, compile_mode):
+    def initialize_runtime(self, dtype, device, sovits_caches, compile_mode):
         batch_size = 1
 
         # 检查是否使用 CUDA Graph（仅 CUDA 设备支持）
