@@ -50,7 +50,7 @@ Beyond the leap in performance, **GSV-TTS-Lite** implements the **decoupling of 
 
 To facilitate integration for developers, **GSV-TTS-Lite** features a significantly streamlined code architecture and is available on PyPI as the `gsv-tts-lite` library, supporting one-click installation via `pip`.
 
-The currently supported languages are **Chinese, Japanese, and English**. The available models include **v2, v2pro and v2proplus**.
+The currently supported languages are **Chinese, Japanese, and English**. The available models include **V2, V2Pro and V2ProPlus**.
 ## Performance Comparison
 
 > [!NOTE]
