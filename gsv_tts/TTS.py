@@ -38,7 +38,7 @@ from .GPT_SoVITS.G2P import Pause
 class TTS:
     def __init__(
         self,
-        gpt_cache: list[tuple[int, int]] = [(1, 512), (1, 1024), (4, 512), (4, 1024)],
+        gpt_cache: list[tuple[int, int]] = [(1, 512), (1, 768), (1, 1024), (4, 512), (4, 1024)],
         sovits_cache: list[int] = [50],
         models_dir: str = None,
         device: str = None,
@@ -1007,6 +1007,88 @@ class TTS:
             return await loop.run_in_executor(None, _infer_with_lock)
         else:
             return await loop.run_in_executor(executor, _infer_with_lock)
+    
+    async def infer_stream_async(
+        self,
+        spk_audio_path: str | dict,
+        prompt_audio_path: str,
+        prompt_audio_text: str,
+        text: str,
+        return_subtitles: bool = False,
+        is_cut_text: bool = True,
+        cut_minlen: int = 10,
+        cut_mute: int = 0.3,
+        cut_mute_scale_map: dict = {"…": 2.0, ".": 1.5, "。": 1.5, "?": 1.5, "？": 1.5, "!": 1.5, "！": 1.5, ",": 0.8, "，": 0.8, ":": 0.8, "：": 0.8, ";": 0.8, "；": 0.8, "~": 0.8, "、": 0.6, "・": 0.6},
+        stream_mode: Literal["token", "sentence"] = "token",
+        stream_chunk: int = 25,
+        overlap_len: int = 10,
+        boost_first_chunk: bool = True,
+        top_k: int = 15,
+        top_p: float = 1.0,
+        temperature: float = 1.0,
+        repetition_penalty: float = 1.35,
+        noise_scale: float = 0.5,
+        speed: float = 1.0,
+        gpt_model: str = None,
+        sovits_model: str = None,
+        debug: bool = True,
+        executor: ThreadPoolExecutor = None,
+    ):
+        """
+        Asynchronous version of the infer_stream method, allowing streaming results 
+        to be yielded in an async context.
+
+        Args:
+            Parameters are identical to the 'infer_stream' method.
+            executor: Optional ThreadPoolExecutor. If not provided, the default executor will be used.
+            
+        Returns:
+            AudioClip: Same return type as the 'infer_stream' method.
+        """
+        loop = asyncio.get_running_loop()
+        queue = asyncio.Queue()
+
+        def _stream_wrapper():
+            try:
+                with self._infer_lock:
+                    for chunk in self.infer_stream(
+                        spk_audio_path=spk_audio_path,
+                        prompt_audio_path=prompt_audio_path,
+                        prompt_audio_text=prompt_audio_text,
+                        text=text,
+                        return_subtitles=return_subtitles,
+                        is_cut_text=is_cut_text,
+                        cut_minlen=cut_minlen,
+                        cut_mute=cut_mute,
+                        cut_mute_scale_map=cut_mute_scale_map,
+                        stream_mode=stream_mode,
+                        stream_chunk=stream_chunk,
+                        overlap_len=overlap_len,
+                        boost_first_chunk=boost_first_chunk,
+                        top_k=top_k,
+                        top_p=top_p,
+                        temperature=temperature,
+                        repetition_penalty=repetition_penalty,
+                        noise_scale=noise_scale,
+                        speed=speed,
+                        gpt_model=gpt_model,
+                        sovits_model=sovits_model,
+                        debug=debug
+                    ):
+                        loop.call_soon_threadsafe(queue.put_nowait, chunk)
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, None)
+
+        if executor is None:
+            loop.run_in_executor(None, _stream_wrapper)
+        else:
+            loop.run_in_executor(executor, _stream_wrapper)
+
+        while True:
+            chunk = await queue.get()
+            if chunk is None:
+                break
+            yield chunk
     
     async def infer_batched_async(
         self,

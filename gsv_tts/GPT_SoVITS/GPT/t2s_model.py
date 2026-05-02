@@ -213,7 +213,7 @@ class Text2SemanticDecoder(nn.Module):
         self.ar_audio_position.extend_pe(torch.tensor(0.0, dtype=dtype, device=device).expand(1, 4000))
 
         if compile_mode == "max-optimized":
-            self.t2s_transformer.process_prompt = torch.compile(self.t2s_transformer.process_prompt, mode="max-autotune-no-cudagraphs", dynamic=True, fullgraph=True)
+            self.t2s_transformer.process_prompt = torch.compile(self.t2s_transformer.process_prompt, mode="max-autotune-no-cudagraphs", dynamic=True)
 
         for batch_size, max_kv_cache in gpt_cache:
             if batch_size in self.cuda_graph_buckets:

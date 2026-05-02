@@ -327,9 +327,9 @@ class SynthesizerTrn(nn.Module):
         use_cuda_graph = device.type == "cuda"
 
         if compile_mode == "default-optimized":
-            self.flow_dec = torch.compile(self.flow_dec, mode="default", dynamic=True, fullgraph=True)
+            self.flow_dec = torch.compile(self.flow_dec, mode="default", dynamic=True)
         elif compile_mode == "max-optimized":
-            self.flow_dec = torch.compile(self.flow_dec, mode="max-autotune-no-cudagraphs", dynamic=True, fullgraph=True)
+            self.flow_dec = torch.compile(self.flow_dec, mode="max-autotune-no-cudagraphs", dynamic=True)
 
         if use_cuda_graph:
             s = torch.cuda.Stream()
