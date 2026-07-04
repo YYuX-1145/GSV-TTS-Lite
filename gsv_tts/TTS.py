@@ -94,6 +94,7 @@ class TTS:
         if use_flash_attn:
             try:
                 import flash_attn
+                logging.info("Flash attention is available.")
             except ImportError:
                 use_flash_attn = False
                 logging.error("Flash attention is not available!")

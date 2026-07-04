@@ -1,4 +1,8 @@
+import logging
 import torch
+import torch.nn.functional as F
+from torch.nn.attention import sdpa_kernel, SDPBackend
+
 
 def get_cuda_device_info(idx: int):
     """获取 CUDA 设备信息"""
@@ -49,6 +53,30 @@ def get_mps_device_info():
         return device, torch.float32, 0.0, 0.0  # sm_version 和 mem_gb 对 MPS 不适用
     except Exception:
         return None
+
+def choose_attention_backend(batch=1, heads=8, seq=128, head_dim=64, dtype=torch.float16):
+    if not torch.cuda.is_available():
+        logging.info("SDPBackend: MATH")
+        return SDPBackend.MATH
+
+    q = torch.randn(batch, heads, seq, head_dim, device="cuda", dtype=dtype)
+    k = torch.randn(batch, heads, seq, head_dim, device="cuda", dtype=dtype)
+    v = torch.randn(batch, heads, seq, head_dim, device="cuda", dtype=dtype)
+
+    try:
+        with sdpa_kernel(SDPBackend.CUDNN_ATTENTION):
+            F.scaled_dot_product_attention(q, k, v, is_causal=True)
+        logging.info("SDPBackend: CUDNN_ATTENTION")
+        return SDPBackend.CUDNN_ATTENTION
+    except:
+        try:
+            with sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
+                F.scaled_dot_product_attention(q, k, v, is_causal=True)
+            logging.info("SDPBackend: EFFICIENT_ATTENTION")
+            return SDPBackend.EFFICIENT_ATTENTION
+        except:
+            logging.info("SDPBackend: MATH")
+            return SDPBackend.MATH
 
 
 # 检测设备类型和配置
@@ -106,3 +134,5 @@ class GlobalConfig:
         self.english_g2p = None
 
 global_config = GlobalConfig()
+
+SDPBACKEND = choose_attention_backend()
