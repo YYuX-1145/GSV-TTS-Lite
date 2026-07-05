@@ -239,7 +239,7 @@ class Text2SemanticDecoder(nn.Module):
             k_cache_root = torch.empty(max_numel, dtype=dtype, device=device)
             v_cache_root = torch.empty(max_numel, dtype=dtype, device=device)
             KV_CACHE_LEN = torch.zeros((max_btz,), dtype=torch.int64, device=device)
-            GRAPH_XY_POS = torch.zeros((max_btz, 1, self.model_dim), dtype=dtype, device=device)
+            GRAPH_XY_POS = torch.zeros((max_btz, 1, self.embedding_dim), dtype=dtype, device=device)
             for batch_size in self.cuda_graph_buckets:
                 for i in range(-1, -len(self.cuda_graph_buckets[batch_size])-1, -1):
                     max_kv_cache = self.cuda_graph_buckets[batch_size][i]
