@@ -58,7 +58,7 @@ class TTS:
             sovits_cache (list[int]): Static cache sizes for the SoVITS model's CUDA graph.
             models_dir (str): The directory path containing the pretrained model files.
             device (str): The device to run the model on.
-            dtype (str): The data type for model inference (e.g., "float16", "bfloat16", "float32").
+            dtype (str): The data type for model inference (e.g., "float16", "float32").
             use_flash_attn (bool): Whether to enable Flash Attention for faster inference.
             use_bert (bool): Whether to use BERT for enhanced Chinese semantic understanding. If True, BERT is loaded at initialization.
             auto_bert (bool): Whether to automatically load BERT when Chinese text is detected. Only effective when use_bert=False. Default is True.
@@ -78,7 +78,6 @@ class TTS:
             dtype_map = {
                 "float32": torch.float32,
                 "float16": torch.float16,
-                "bfloat16": torch.bfloat16
             }
 
             self.tts_config.dtype = dtype_map.get(dtype.lower(), torch.float32)

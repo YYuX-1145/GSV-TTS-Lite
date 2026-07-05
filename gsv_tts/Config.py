@@ -29,11 +29,7 @@ def get_cuda_device_info(idx: int):
     if sm_version == 6.1 or is_16_series:
         return device, torch.float32, sm_version, mem_gb
 
-    # 针对 Ampere (sm 8.0) 及以上架构，优先使用 bfloat16
-    if sm_version >= 8.0:
-        return device, torch.bfloat16, sm_version, mem_gb
-
-    # 针对 Volta (sm 7.0) 和 Turing (sm 7.5，除16系列外) 使用 float16
+    # 针对 Volta (sm 7.0) 和 Turing (sm 7.5，除16系列外) 及以上架构使用 float16
     if sm_version >= 7.0:
         return device, torch.float16, sm_version, mem_gb
 
