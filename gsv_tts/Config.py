@@ -55,24 +55,33 @@ def choose_attention_backend(batch=1, heads=8, seq=128, head_dim=64, dtype=torch
         logging.info("SDPBackend: MATH")
         return SDPBackend.MATH
 
-    q = torch.randn(batch, heads, seq, head_dim, device="cuda", dtype=dtype)
     k = torch.randn(batch, heads, seq, head_dim, device="cuda", dtype=dtype)
     v = torch.randn(batch, heads, seq, head_dim, device="cuda", dtype=dtype)
 
-    try:
-        with sdpa_kernel(SDPBackend.CUDNN_ATTENTION):
-            F.scaled_dot_product_attention(q, k, v, is_causal=True)
+    probes = []
+    for q_len in (seq, 1):
+        q = torch.randn(batch, heads, q_len, head_dim, device="cuda", dtype=dtype)
+        mask = torch.zeros(batch, heads, q_len, seq, device="cuda", dtype=torch.bool)
+        probes.append((q, mask))
+
+    def is_usable(backend):
+        try:
+            for q, mask in probes:
+                with sdpa_kernel(backend):
+                    F.scaled_dot_product_attention(q, k, v, attn_mask=mask)
+            return True
+        except:
+            return False
+
+    if is_usable(SDPBackend.CUDNN_ATTENTION):
         logging.info("SDPBackend: CUDNN_ATTENTION")
         return SDPBackend.CUDNN_ATTENTION
-    except:
-        try:
-            with sdpa_kernel(SDPBackend.EFFICIENT_ATTENTION):
-                F.scaled_dot_product_attention(q, k, v, is_causal=True)
-            logging.info("SDPBackend: EFFICIENT_ATTENTION")
-            return SDPBackend.EFFICIENT_ATTENTION
-        except:
-            logging.info("SDPBackend: MATH")
-            return SDPBackend.MATH
+    elif is_usable(SDPBackend.EFFICIENT_ATTENTION):
+        logging.info("SDPBackend: EFFICIENT_ATTENTION")
+        return SDPBackend.EFFICIENT_ATTENTION
+    else:
+        logging.info("SDPBackend: MATH")
+        return SDPBackend.MATH
 
 
 # 检测设备类型和配置
