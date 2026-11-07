@@ -49,6 +49,9 @@ tts: Optional[TTS] = None
 asr = None
 temp_dir = tempfile.mkdtemp(prefix="gsv_tts_personal_")
 use_asr_flag = True
+use_flash_attn_flag = False
+use_bert_flag = False
+use_jieba_fast_flag = False
 
 
 def is_url(path: str) -> bool:
@@ -416,6 +419,9 @@ async def startup_event():
     
     tts = TTS(
         models_dir=models_dir,
+        use_flash_attn=use_flash_attn_flag,
+        use_bert=use_bert_flag,
+        use_jieba_fast=use_jieba_fast_flag,
         sovits_cache=[50],
     )
     print("TTS 模型加载完成！")
@@ -760,7 +766,13 @@ if __name__ == "__main__":
     parser.add_argument("--models_dir", type=str, default="models", help="预训练模型目录")
     parser.add_argument("-p", "--port", type=int, default=9880, help="server port")
     parser.add_argument("--use_asr", action="store_true", help="使用ASR自动识别音频文本")
+    parser.add_argument("--use_flash_attn", action="store_true", help="启用 Flash Attention")
+    parser.add_argument("--use_bert", action="store_true", help="启动时加载 BERT")
+    parser.add_argument("--use_jieba_fast", action="store_true", help="启用 jieba-fast 分词")
     args = parser.parse_args()
     models_dir = args.models_dir
     use_asr_flag = args.use_asr
+    use_flash_attn_flag = args.use_flash_attn
+    use_bert_flag = args.use_bert
+    use_jieba_fast_flag = args.use_jieba_fast
     uvicorn.run(app, host="0.0.0.0", port=args.port)
